@@ -1,0 +1,39 @@
+# Thư mục môi trường ảo (virtual environment)
+venv/
+env/
+*.env
+
+# Bỏ qua thư mục model
+models/
+
+# File bytecode Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Thư mục tạm thời, log
+*.log
+*.tmp
+
+# File cấu hình hệ thống (thường không cần thiết trong repo)
+.DS_Store         # macOS
+Thumbs.db         # Windows
+
+# File cấu hình của IDEs (Visual Studio Code, PyCharm, v.v.)
+.vscode/
+.idea/
+
+# Các file đặc biệt của Flask
+instance/
+*.sqlite3
+
+# Các file phụ trợ khác của WebSocket
+node_modules/
+*.bak
+*.swp
+
+# Các file ghi âm
+*.wav
+
+*.zip
+*.rar

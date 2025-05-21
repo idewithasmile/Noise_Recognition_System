@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Realtime Audio Results</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 1rem;
+        background-color: #f2f2f2;
+        color: #333;
+      }
+
+      h1 {
+        text-align: center;
+        color: #333;
+      }
+
+      .result-card {
+        background-color: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        padding: 1rem;
+        margin-bottom: 1rem;
+        transition: transform 0.2s ease-in-out;
+      }
+
+      .result-card:hover {
+        transform: scale(1.01);
+      }
+
+      .result-card h3 {
+        margin: 0;
+        font-size: 1.2rem;
+        color: #007bff;
+      }
+
+      .timestamp {
+        font-size: 0.9rem;
+        color: #666;
+        margin-bottom: 0.5rem;
+      }
+
+      .result-split {
+        display: flex;
+        gap: 1rem;
+        margin-top: 0.5rem;
+      }
+
+      .left-pane,
+      .right-pane {
+        flex: 1;
+        background: #f9f9f9;
+        padding: 0.5rem;
+        border-radius: 8px;
+      }
+
+      .prediction {
+        display: inline-block;
+        background-color: #007bff;
+        color: white;
+        padding: 0.2rem 0.5rem;
+        border-radius: 6px;
+        margin: 0.2rem;
+        font-size: 0.85rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Kết quả dự đoán âm thanh</h1>
+    <div id="results-container"></div>
+
+    <script>
+      const results = {};
+      const resultsContainer = document.getElementById("results-container");
+
+      function handleResult(data) {
+        console.log("Received result:", data);
+
+        const fileId = data.file || `file_${Date.now()}`;
+
+        if (!results[fileId]) {
+          results[fileId] = {
+            file: data.file,
+            time: data.time || Date.now() / 1000,
+            results: {
+              yamnet: {},
+              ast: {},
+            },
+          };
+        }
+
+        if (data.results?.yamnet) {
+          results[fileId].results.yamnet = data.results.yamnet;
+        }
+
+        if (data.results?.ast) {
+          results[fileId].results.ast = data.results.ast;
+        }
+
+        if (data.time) {
+          results[fileId].time = data.time;
+        }
+
+        renderResults();
+      }
+
+      function renderPredictions(container, predictions) {
+        container.innerHTML = "";
+
+        if (Array.isArray(predictions)) {
+          // predictions là mảng các {label, score}
+          predictions.forEach(({ label, score }) => {
+            const span = document.createElement("span");
+            span.className = "prediction";
+            const pct = parseFloat(score) * 100;
+            span.textContent = `${label} ${
+              isNaN(pct) ? "0.0" : pct.toFixed(1)
+            }%`;
+            container.appendChild(span);
+          });
+        } else if (typeof predictions === "object" && predictions !== null) {
+          // predictions là object dạng {label: score}
+          for (const [label, score] of Object.entries(predictions)) {
+            const span = document.createElement("span");
+            span.className = "prediction";
+            const pct = parseFloat(score) * 100;
+            span.textContent = `${label} ${
+              isNaN(pct) ? "0.0" : pct.toFixed(1)
+            }%`;
+            container.appendChild(span);
+          }
+        } else {
+          container.textContent = "Không có kết quả";
+        }
+      }
+
+      function renderResults() {
+        if (Object.keys(results).length === 0) {
+          resultsContainer.innerHTML = `<div style="text-align:center; color: #999;">Chưa có kết quả</div>`;
+          return;
+        }
+
+        resultsContainer.innerHTML = "";
+
+        const sorted = Object.values(results).sort((a, b) => b.time - a.time);
+
+        for (const result of sorted) {
+          const card = document.createElement("div");
+          card.className = "result-card";
+
+          const timestamp = new Date(result.time).toLocaleString();
+
+          card.innerHTML = `
+          <h3>${result.file || "Không xác định"}</h3>
+          <div class="timestamp">${timestamp}</div>
+          <div class="result-split">
+            <div class="left-pane"><h4>YamNet</h4></div>
+            <div class="right-pane"><h4>AST</h4></div>
+          </div>
+        `;
+
+          const yamnetDiv = card.querySelector(".left-pane");
+          const astDiv = card.querySelector(".right-pane");
+
+          renderPredictions(yamnetDiv, result.results.yamnet);
+          renderPredictions(astDiv, result.results.ast);
+
+          resultsContainer.appendChild(card);
+        }
+      }
+
+      // SSE listener
+      const evtSource = new EventSource("/api/events");
+
+      evtSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          handleResult(data);
+        } catch (err) {
+          console.error("Lỗi khi parse JSON:", err);
+        }
+      };
+
+      evtSource.onerror = (err) => {
+        console.error("Lỗi SSE:", err);
+      };
+    </script>
+  </body>
+</html>
